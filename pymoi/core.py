@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from typing import List
 import pandas as pd
 import xlwings as xw
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql import func
 
 
 class PyMoi:
@@ -23,10 +26,10 @@ class PyMoi:
     def _get_col_info(self, name: str):
         cursor = self._con.cursor()
         cursor.execute(f"SELECT * FROM {name} WHERE 1=0")
-        _ = [dict(zip(self.description_keys, col)) for col in cursor.description]
+        _ = [dict(zip(self.description_keys, col))
+             for col in cursor.description]
         cursor.close()
         return _
-
 
     def to_sql(self, name: str, dataframe: pd.DataFrame):
         # 文字型または日付型をシングルクォーテーション
@@ -56,129 +59,87 @@ class PyMoi:
             self._con.close()
 
 
-@dataclass
-class Parameter:
-    pass
+class PyMoi2:
+    def __init__(self, bind, name: str):
+        self.bind = bind
+        self.name = name
 
+        Base = automap_base()
+        Base.prepare(self.bind, reflect=True)
+        self.Table = getattr(Base.classes, self.name)
 
-@dataclass
-class StaticParameter(Parameter):
-    pass
+        Session = sessionmaker(bind=self.bind)
+        self.session = Session()
 
+    # テスト用
+    def clear(self):
+        self.session.query(self.Table).delete()
+        self.session.commit()
 
-@dataclass
-class DynamicParameter(Parameter):
-    pass
+    # テスト用
+    def show(self):
+        df = pd.read_sql_table(self.name, self.bind)
+        print(df.head())
+        # df.to_sql(self.name, self.bind, index=False, if_exists='append')
 
+        # for row in self.session.query(self.Table).all():
+        #     print(vars(row))
 
-@dataclass
-class FixedParameter(StaticParameter):
-    value: str
+    def get_max_record_id(self, id_col: str = "record_id"):
+        res = self.session.query(
+            func.max(getattr(self.Table, id_col))).scalar()
+        return int(res or -1)
 
+    def __prepare_data(self, data, id_col, delete_flag_col, first_id):
+        if id_col in data.columns or delete_flag_col in data.columns:
+            raise Exception
 
-@dataclass
-class CellParameter(StaticParameter):
-    cell: str
+        data[id_col] = range(first_id, first_id+len(data))
+        data[delete_flag_col] = 0
+        return data
 
+    def __update_delete_flag(self, data, overwrite, id_col, delete_flag_col, last_id):
 
-@dataclass
-class DirectionParameter(DynamicParameter):
-    line: int
-    column: str
-    number: int
+        # 未取消かつ取込前までのレコードを準備する
+        stmt = self.session.query(self.Table).filter(
+            getattr(self.Table, delete_flag_col) == 0).filter(getattr(self.Table, id_col) <= last_id)
 
-    def __init__(self, line: int, column: str, number: int):
-        if line < 1:
-            raise ValueError(f"line must > 0 but {line}")
-        if number < 1:
-            raise ValueError(f'argument "number" must > 0 but {line}')
+        # 上書き条件に指定された全列にマッチするレコードを検索
+        for owkey in overwrite:
+            stmt = stmt.filter(
+                getattr(self.Table, owkey).in_(data[owkey].to_list()))
 
-        self.line = line
-        self.column = column
-        self.number = number
+        # 削除対象レコードのIDを取得
+        delete_record_id = [getattr(_, id_col) for _ in stmt]
 
+        # 削除対象レコードの削除フラグを更新
+        stmt = self.session.query(self.Table).filter(
+            getattr(self.Table, id_col).in_(delete_record_id)).update({delete_flag_col: 1})
 
-@dataclass
-class RepeatParameter(DynamicParameter):
-    line: int
-    column: str
-    number: int
+    def execute(self, data: pd.DataFrame, overwrite=None, id_col: str = "record_id", delete_flag_col: str = "is_deleted"):
 
-    def __init__(self, line: int, column: str, number: int):
-        if line < 1:
-            raise ValueError
-        if number < 1:
-            raise ValueError
+        # レコードIDと削除フラグを追加
+        if overwrite:
+            last_id = self.get_max_record_id()
+            data = self.__prepare_data(
+                data, id_col, delete_flag_col, last_id+1)
 
-        self.line = line
-        self.column = column
-        self.number = number
+        # DataFrameをinsert
+        try:
+            for row in data.itertuples(index=False):
+                params = {k: v for k, v in zip(data.columns, row)}
+                insert_row = self.Table(**params)
+                self.session.add(insert_row)
 
+            self.session.commit()
+        except Exception as e:
+            print(e)
+            self.session.rollback()
+            return
 
-class ExcelReader:
-    def __init__(
-        self,
-        fullname,
-        seek_start: str,
-        koseigyo: int = 1,
-        sheetname: str = None,
-    ):
-        self.fullname = fullname
-        self.seek_start = seek_start
-        self.koseigyo = koseigyo
-        self.sheetname = sheetname
+        # 削除フラグを更新
+        if overwrite:
+            self.__update_delete_flag(
+                data, overwrite, id_col, delete_flag_col, last_id)
 
-        self.parameters = List[Parameter]
-
-        self.count = 0
-
-    def get_dataframe(self) -> pd.DataFrame():
-
-        xw.App(visible=False)
-
-        self._wb = xw.Book(
-            self.fullname, read_only=True, ignore_read_only_recommended=True
-        )
-
-        # sheetnameが指定されていない場合は最初のシートを対象とする
-        self._sht = self._wb.sheets[self.sheetname if self.sheetname else 0]
-
-        # 読込み行数を取得
-        while self._sht.range(self.seek_start).offset(row_offset=self.count).value:
-            self.count += self.koseigyo
-
-        buffer = []
-
-        for param in self.parameters:
-            # fixed, cell
-            if isinstance(param, StaticParameter):
-
-                if isinstance(param, FixedParameter):
-                    ser = pd.Series([param.value] * self.count)
-
-                elif isinstance(param, CellParameter):
-                    ser = pd.Series([self._sht.range(param.cell).value] * self.count)
-
-                buffer.append(ser)
-
-            # direction, repeat
-            elif isinstance(param, DynamicParameter):
-                for j in range(param.number):
-
-                    # 始点セルと終点セルを取得
-                    r1 = self._sht.range(
-                        param.column + str(self._sht.range(self.seek_start).row)
-                    ).offset(column_offset=j)
-                    r2 = r1.offset(row_offset=self.count - 1)
-
-                    ser = pd.Series(self._sht.range(r1, r2).value)
-
-                    # Repeatの場合はnaを直前の値で埋める
-                    if isinstance(param, RepeatParameter):
-                        ser.ffill(inplace=True)
-
-                    buffer.append(ser)
-
-        self._wb.close()
-
-        return pd.DataFrame({k: v for k, v in zip(range(len(buffer)), buffer)})
+        self.session.commit()
