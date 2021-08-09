@@ -116,6 +116,10 @@ class PyMoi2:
         stmt = self.session.query(self.Table).filter(
             getattr(self.Table, id_col).in_(delete_record_id)).update({delete_flag_col: 1})
 
+    def __param_generator(self, data):
+        for row in data.itertuples(index=False):
+            yield {k: v for k, v in zip(data.columns, row)}
+
     def execute(self, data: pd.DataFrame, overwrite=None, id_col: str = "record_id", delete_flag_col: str = "is_deleted"):
 
         # レコードIDと削除フラグを追加
@@ -126,14 +130,28 @@ class PyMoi2:
 
         # DataFrameをinsert
         try:
+            # coreは無効化しておく
+            enable_core = False
+            insert_rows = []
+
             for row in data.itertuples(index=False):
                 params = {k: v for k, v in zip(data.columns, row)}
                 insert_row = self.Table(**params)
-                self.session.add(insert_row)
+
+                # 高速化のためsqlalchemy.coreを使用
+                if enable_core:
+                    insert_rows.append(params)
+                else:
+                    self.session.add(insert_row)
+
+            # 高速化のためsqlalchemy.coreを使用
+            if enable_core:
+                self.session.execute(
+                    self.Table.__table__.insert(), insert_rows)
 
             self.session.commit()
         except Exception as e:
-            print(e)
+            print("Exception:", e)
             self.session.rollback()
             return
 

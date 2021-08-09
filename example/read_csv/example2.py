@@ -14,7 +14,7 @@ database = 'db'
 engine = create_engine(
     f"{dialect}+{driver1}://{host}:{port}/{database}?trusted_connection=yes&driver={driver}")
 
-csvfile = "example\\read_csv\\testdata_100000.csv"
+csvfile = "example\\read_csv\\testdata_1000000.csv"
 df = pd.read_csv(csvfile)
 
 start = time.time()
@@ -27,4 +27,6 @@ print("elapsed_time:{0}".format(elapsed_time) + "[sec]")
 
 pm2.show()
 
-# 23sec
+# 100k lines 13sec
+# 1000k lines 246sec-313sec
+# 1000k lines 158sec-182sec (core)

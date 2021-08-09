@@ -24,4 +24,5 @@ moi.to_sql("dbo.pymoi_example_read_csv", df)
 elapsed_time = time.time() - start
 print("elapsed_time:{0}".format(elapsed_time) + "[sec]")
 
-# 12sec
+# 100k lines 12sec
+# 1000k lines 172-246s
