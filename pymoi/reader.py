@@ -1,8 +1,9 @@
 # -*- coding: UTF-8 -*-
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List
 import pandas as pd
 import xlwings as xw
+import datetime
 
 
 @dataclass
@@ -23,6 +24,15 @@ class DynamicParameter(Parameter):
 @dataclass
 class FixedParameter(StaticParameter):
     value: str
+
+    __reserved_params = {
+        "#システム日時": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "#システム日付": datetime.datetime.today().strftime('%Y-%m-%d'),
+        "#本日": datetime.datetime.today().strftime('%Y-%m-%d'),
+    }
+
+    def __post_init__(self):
+        self.value = self.__reserved_params.get(self.value, self.value)
 
 
 @dataclass
@@ -77,7 +87,7 @@ class ExcelReader:
         self.koseigyo = koseigyo
         self.sheetname = sheetname
 
-        self.parameters = List[Parameter]
+        self.parameters = []
 
         self.count = 0
 
@@ -121,7 +131,6 @@ class ExcelReader:
                         str(self._sht.range(self.seek_start).row)
                     ).offset(column_offset=j)
                     r2 = r1.offset(row_offset=self.count - 1)
-
                     ser = pd.Series(self._sht.range(r1, r2).value)
 
                     # Repeatの場合はnaを直前の値で埋める
