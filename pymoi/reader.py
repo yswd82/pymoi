@@ -4,6 +4,7 @@ from typing import List
 import pandas as pd
 import xlwings as xw
 import datetime
+import csv
 
 
 @dataclass
@@ -25,6 +26,7 @@ class DynamicParameter(Parameter):
 class FixedParameter(StaticParameter):
     value: str
 
+    # TODO: システム日付と本日の違いは？
     __reserved_params = {
         "#システム日時": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         "#システム日付": datetime.datetime.today().strftime('%Y-%m-%d'),
@@ -142,3 +144,12 @@ class ExcelReader:
         self._wb.close()
 
         return pd.DataFrame({k: v for k, v in zip(range(len(buffer)), buffer)})
+
+
+class CsvReader:
+    def __init__(self, fullname, delimiter=',', quoting=csv.QUOTE_MINIMAL, quotechar='"'):
+        with open(fullname) as f:
+            reader = csv.reader(f, delimiter, quoting, quotechar)
+
+    def get_dataframe(self):
+        return

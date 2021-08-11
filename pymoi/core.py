@@ -7,6 +7,7 @@ import xlwings as xw
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
+from pymoi.reader import FixedParameter, CellParameter, DirectionParameter, RepeatParameter, ExcelReader
 
 
 class PyMoi:
@@ -230,3 +231,28 @@ class PyMoi2:
         self.__update_delete_flag2(data, overwrite, last_id)
 
         self.session.commit()
+
+
+# ファイル操作機能を統合
+class PyMoi3:
+    def __init__(self, bind, name: str, reader:):
+        self.bind = bind
+        self.name = name
+
+        Base = automap_base()
+        Base.prepare(self.bind, reflect=True)
+        self.Table = getattr(Base.classes, self.name)
+
+        Session = sessionmaker(bind=self.bind)
+        self.session = Session()
+
+    def execute(self):
+        pass
+
+    @property
+    def read(self):
+        return
+
+    @property
+    def max_record_id(self):
+        return
