@@ -4,18 +4,25 @@ DataFrameをSQLサーバにINSERTするツール
 
 ついでにExcelから柔軟にDataFrameを生成したりする
 
+## Develop environment
+
+Windows 10 Home 64-bit
+Python 3.8.2 64-bit
+
 ## How to use
 
-`main.py` 参照
+example以下参照
 
 先に `pandas.read_csv()` などでcsvやxlsxからDataFrame化しておいたデータを扱うことに特化します。
 
 ## Example(DataFrame to SQL)
 
+あらかじめcsvから作成したDataFrameをインポート
+
 ```python
 import pyodbc
 import pandas as pd
-from core import PyMoi
+from pymoi import PyMoi
 
 
 # CREATE TABLE [dbo].[pymoi_test](
@@ -38,9 +45,11 @@ database = "db"
 trusted_connection = "yes"
 con_str = f"DRIVER={driver};SERVER={server};DATABASE={database};PORT=1433;Trusted_Connection={trusted_connection};"
 
+# connectionオブジェクトを作成
 con = pyodbc.connect(con_str)
 
-csvfile = "testdata_100000.csv"
+# DataFrameを作成
+csvfile = "pymoi\\example\\read_csv\\testdata_100000.csv"
 df = pd.read_csv(csvfile)
 
 moi = PyMoi(con)
@@ -51,14 +60,14 @@ con.close()
 
 ## Example(Excel to DataFrame)
 
+ExcelからDataFrameを作成
 サンプルデータ 'data.xlsx'
 
 ![サンプルデータ](https://user-images.githubusercontent.com/38760948/128547328-c881c34d-cf6b-4ab4-bd6a-60e328bca9fe.png)
 
-```
-
+```python
 # -*- coding: UTF-8 -*-
-from core import (
+from pymoi import (
     ExcelReader,
     FixedParameter,
     CellParameter,
@@ -103,13 +112,3 @@ print(df.head())
 2  hello  A  c  3.0  30.0  y
 3  hello  A  d  4.0  40.0  y
 ```
-
-
-## TODO
-
-- INSERTするテーブルがない場合の対応(先にCREATE TABLEする
-- DataFrameとテーブルの列数が一致しない場合の対応(列名変換マッピング, 元データにない列の追加
-- INSERT先のテーブルに特定の列(取消フラグ)がある場合にレコードを論理削除する
-- INSERTし終わったファイルの自動退避
-- 動作内容のセーブとロード(json?
-- 複数のINSERTの連続実行(プラン

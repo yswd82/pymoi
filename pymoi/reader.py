@@ -1,88 +1,48 @@
 # -*- coding: UTF-8 -*-
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List
 import pandas as pd
 import xlwings as xw
+import datetime
 
 
-@dataclass
-class Parameter:
-    pass
+class PyMoiReader:
+    def read(self) -> pd.DataFrame:
+        pass
 
 
-@dataclass
-class StaticParameter(Parameter):
-    pass
+class CsvReader(PyMoiReader):
+    def __init__(self, fullname, delimiter=',', quotechar='"'):
+        self.fullname = fullname
+        self.delimiter = delimiter
+        self.quotechar = quotechar
+
+    def read(self):
+        df = pd.read_csv(self.fullname, delimiter=self.delimiter,
+                         quotechar=self.quotechar)
+        return df
 
 
-@dataclass
-class DynamicParameter(Parameter):
-    pass
-
-
-@dataclass
-class FixedParameter(StaticParameter):
-    value: str
-
-
-@dataclass
-class CellParameter(StaticParameter):
-    cell: str
-
-
-@dataclass
-class DirectionParameter(DynamicParameter):
-    line: int
-    column: str
-    number: int
-
-    def __init__(self, line: int, column: str, number: int):
-        if line < 1:
-            raise ValueError(f"line must > 0 but {line}")
-        if number < 1:
-            raise ValueError(f'argument "number" must > 0 but {line}')
-
-        self.line = line
-        self.column = column
-        self.number = number
-
-
-@dataclass
-class RepeatParameter(DynamicParameter):
-    line: int
-    column: str
-    number: int
-
-    def __init__(self, line: int, column: str, number: int):
-        if line < 1:
-            raise ValueError
-        if number < 1:
-            raise ValueError
-
-        self.line = line
-        self.column = column
-        self.number = number
-
-
-class ExcelReader:
+class ExcelReader(PyMoiReader):
     def __init__(
         self,
         fullname,
         seek_start: str,
-        koseigyo: int = 1,
+        names: list,
+        unit_row: int = 1,
         sheetname: str = None,
     ):
         self.fullname = fullname
         self.seek_start = seek_start
-        self.koseigyo = koseigyo
+        self.unit_row = unit_row
         self.sheetname = sheetname
+        self.names = names
 
-        self.parameters = List[Parameter]
+        self.parameters = []
 
         self.count = 0
 
-    def get_dataframe(self) -> pd.DataFrame():
-
+    def read(self):
         xw.App(visible=False)
 
         self._wb = xw.Book(
@@ -94,7 +54,7 @@ class ExcelReader:
 
         # 読込み行数を取得
         while self._sht.range(self.seek_start).offset(row_offset=self.count).value:
-            self.count += self.koseigyo
+            self.count += self.unit_row
 
         buffer = []
 
@@ -121,7 +81,6 @@ class ExcelReader:
                         str(self._sht.range(self.seek_start).row)
                     ).offset(column_offset=j)
                     r2 = r1.offset(row_offset=self.count - 1)
-
                     ser = pd.Series(self._sht.range(r1, r2).value)
 
                     # Repeatの場合はnaを直前の値で埋める
@@ -132,4 +91,75 @@ class ExcelReader:
 
         self._wb.close()
 
-        return pd.DataFrame({k: v for k, v in zip(range(len(buffer)), buffer)})
+        df = pd.DataFrame({k: v for k, v in zip(range(len(buffer)), buffer)})
+        df.columns = self.names
+        return df
+
+
+@dataclass
+class Parameter:
+    pass
+
+
+@dataclass
+class StaticParameter(Parameter):
+    pass
+
+
+@dataclass
+class DynamicParameter(Parameter):
+    pass
+
+
+@dataclass
+class FixedParameter(StaticParameter):
+    value: str
+
+    # TODO: システム日付と本日の違いは？
+    __reserved_params = {
+        "#システム日時": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "#システム日付": datetime.datetime.today().strftime('%Y-%m-%d'),
+        "#本日": datetime.datetime.today().strftime('%Y-%m-%d'),
+    }
+
+    def __post_init__(self):
+        self.value = self.__reserved_params.get(self.value, self.value)
+
+
+@dataclass
+class CellParameter(StaticParameter):
+    cell: str
+
+
+@dataclass
+class DirectionParameter(DynamicParameter):
+    line: int
+    column: str
+    number: int
+
+    def __init__(self, line: int, column: str, number: int):
+        if line < 1:
+            raise ValueError(f"line must > 0 but {line}")
+        if number < 1:
+            raise ValueError(f'argument "number" must > 0 but {number}')
+
+        self.line = line
+        self.column = column
+        self.number = number
+
+
+@dataclass
+class RepeatParameter(DynamicParameter):
+    line: int
+    column: str
+    number: int
+
+    def __init__(self, line: int, column: str, number: int):
+        if line < 1:
+            raise ValueError
+        if number < 1:
+            raise ValueError
+
+        self.line = line
+        self.column = column
+        self.number = number
