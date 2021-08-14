@@ -90,8 +90,6 @@ class PyMoi:
             self.session.rollback()
             return
 
-        print("ok")
-
         # 論理または物理削除
         if overwrite:
             self.__delete_process(data, overwrite, latest_record_id)

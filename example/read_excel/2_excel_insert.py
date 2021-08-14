@@ -12,7 +12,7 @@ engine = enginefactory_mssql_pyodbc(
     server=host, port=1433, database=database, driver=driver)
 
 filename = "example\\data\\init.xlsx"
-header = ['fid', 'fdate', 'fprice', 'famount']
+header = ['fid', 'fdate', 'fcode', 'fprice', 'famount']
 
 xlsrd = ExcelReader(fullname=filename, seek_start="B6",
                     sheetname="Sheet1", names=header)
@@ -20,6 +20,7 @@ xlsrd = ExcelReader(fullname=filename, seek_start="B6",
 params = [
     DirectionParameter(1, "B", 2),
     RepeatParameter(1, "D", 1),
+    FixedParameter(1234),
     CellParameter("B3"),
 ]
 
