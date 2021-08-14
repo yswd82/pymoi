@@ -11,10 +11,9 @@ database = 'db'
 engine = enginefactory_mssql_pyodbc(
     server=host, port=1433, database=database, driver=driver)
 
-filename = "example\\data\\init.xlsx"
+excelfile = "example\\data\\init.xlsx"
 header = ['fid', 'fdate', 'fcode', 'fprice', 'famount']
-
-xlsrd = ExcelReader(fullname=filename, seek_start="B6",
+xlsrd = ExcelReader(fullname=excelfile, seek_start="B6",
                     sheetname="Sheet1", names=header)
 
 params = [
@@ -23,9 +22,9 @@ params = [
     FixedParameter(1234),
     CellParameter("B3"),
 ]
-
 xlsrd.parameters = params
 
+# ExcelをDataFrameに変換した状態を確認
 df = xlsrd.read()
 print(df.head(100))
 
@@ -40,5 +39,6 @@ pm.execute(xlsrd)
 elapsed_time = time.time() - start
 print("elapsed_time:{0}".format(elapsed_time) + "[sec]")
 
+# insert後のテーブル内容を確認
 df = pm.read_table()
 print(df.head(100))
