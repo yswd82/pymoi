@@ -1,13 +1,10 @@
 # -*- coding: UTF-8 -*-
-from datetime import datetime
 from dataclasses import dataclass
-from typing import List
 import pandas as pd
-import xlwings as xw
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
-from pymoi.reader import PyMoiReader, CsvReader, ExcelReader, FixedParameter, CellParameter, DirectionParameter, RepeatParameter
+from pymoi.reader import PyMoiReader
 
 
 DEFAULT_RECORD_ID_COL = 'record_id'
@@ -28,6 +25,7 @@ class PyMoi:
         self.name = name
         self.id_col = id_col
 
+        # TODO: PrimaryKeyがないと正しくテーブル定義を取得できない
         Base = automap_base()
         Base.prepare(self.bind, reflect=True)
         self.Table = getattr(Base.classes, self.name)
@@ -44,6 +42,9 @@ class PyMoi:
     def read_table(self):
         df = pd.read_sql_table(self.name, self.bind)
         return df
+
+    def columns(self):
+        return self.read_table().columns
 
     @property
     def max_record_id(self):
@@ -67,33 +68,21 @@ class PyMoi:
         else:
             ValueError(
                 "dataframe_or_reader must be pandas DataFrame or PyMoiReader")
+            return
 
         # レコードIDと削除フラグを追加
         if overwrite:
-            last_id = self.max_record_id
+            latest_record_id = self.max_record_id
             data = self.__prepare_data(
-                data, overwrite.id_col, overwrite.delete_flag_col, last_id+1)
+                data, overwrite.id_col, overwrite.delete_flag_col, latest_record_id+1)
 
         # DataFrameをinsert
         try:
-            # coreは無効化しておく
-            enable_core = False
-            insert_rows = []
-
             for row in data.itertuples(index=False):
                 params = {k: v for k, v in zip(data.columns, row)}
                 insert_row = self.Table(**params)
 
-                # 高速化のためsqlalchemy.coreを使用
-                if enable_core:
-                    insert_rows.append(params)
-                else:
-                    self.session.add(insert_row)
-
-            # 高速化のためsqlalchemy.coreを使用
-            if enable_core:
-                self.session.execute(
-                    self.Table.__table__.insert(), insert_rows)
+                self.session.add(insert_row)
 
             self.session.commit()
         except Exception as e:
@@ -101,16 +90,18 @@ class PyMoi:
             self.session.rollback()
             return
 
+        print("ok")
+
         # 論理または物理削除
         if overwrite:
-            self.__delete_process(data, overwrite, last_id)
+            self.__delete_process(data, overwrite, latest_record_id)
 
         self.session.commit()
 
-    def __delete_process(self, data, overwrite, last_id):
+    def __delete_process(self, data, overwrite, latest_record_id):
         # 未取消かつ取込前までのレコードを準備する
         stmt = self.session.query(self.Table).filter(
-            getattr(self.Table, overwrite.delete_flag_col) == 0).filter(getattr(self.Table, overwrite.id_col) <= last_id)
+            getattr(self.Table, overwrite.delete_flag_col) == 0).filter(getattr(self.Table, overwrite.id_col) <= latest_record_id)
 
         # 上書き条件に指定された全列にマッチするレコードを検索
         for owkey in overwrite.keys:

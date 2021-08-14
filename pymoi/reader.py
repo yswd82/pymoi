@@ -4,11 +4,10 @@ from typing import List
 import pandas as pd
 import xlwings as xw
 import datetime
-# import csv
 
 
 class PyMoiReader:
-    def read(self) -> pd.DataFrame():
+    def read(self) -> pd.DataFrame:
         pass
 
 
@@ -24,11 +23,12 @@ class CsvReader(PyMoiReader):
         return df
 
 
-class ExcelReader:
+class ExcelReader(PyMoiReader):
     def __init__(
         self,
         fullname,
         seek_start: str,
+        names: list,
         unit_row: int = 1,
         sheetname: str = None,
     ):
@@ -36,13 +36,13 @@ class ExcelReader:
         self.seek_start = seek_start
         self.unit_row = unit_row
         self.sheetname = sheetname
+        self.names = names
 
         self.parameters = []
 
         self.count = 0
 
-    def get_dataframe(self) -> pd.DataFrame():
-
+    def read(self):
         xw.App(visible=False)
 
         self._wb = xw.Book(
@@ -91,7 +91,9 @@ class ExcelReader:
 
         self._wb.close()
 
-        return pd.DataFrame({k: v for k, v in zip(range(len(buffer)), buffer)})
+        df = pd.DataFrame({k: v for k, v in zip(range(len(buffer)), buffer)})
+        df.columns = self.names
+        return df
 
 
 @dataclass
@@ -139,7 +141,7 @@ class DirectionParameter(DynamicParameter):
         if line < 1:
             raise ValueError(f"line must > 0 but {line}")
         if number < 1:
-            raise ValueError(f'argument "number" must > 0 but {line}')
+            raise ValueError(f'argument "number" must > 0 but {number}')
 
         self.line = line
         self.column = column
