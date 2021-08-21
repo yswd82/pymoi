@@ -1,6 +1,5 @@
 # -*- coding: UTF-8 -*-
-from dataclasses import dataclass, field
-from typing import List
+from dataclasses import dataclass
 import pandas as pd
 import xlwings as xw
 import datetime
@@ -15,9 +14,14 @@ class PyMoiReader:
     def read(self) -> pd.DataFrame():
         pass
 
-    def move_file(self):
+    def move_file(self, dest_dir="%Y%m%d": str):
+        datetime.date.today().strftime(dest_dir)
         dest_dir = os.path.dirname(fullname + '/yyyymmdd/')
-        shutil.move(fullname, dest_dir)
+
+        try:
+            shutil.move(fullname, dest_dir)
+        except FileNotFoundError as e:
+            print(e)
 
 
 class CsvReader(PyMoiReader):
