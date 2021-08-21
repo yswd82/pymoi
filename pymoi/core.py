@@ -122,8 +122,11 @@ class PyMoi:
         # 論理または物理削除
         if overwrite:
             self.__delete_process(data, overwrite, latest_record_id, session)
+            session.commit()
 
-        session.commit()
+        # 投入後にファイルを移動
+        if dataframe_or_reader.insert_after_move:
+            dataframe_or_reader.move_file()
 
     def __delete_process(self, data, overwrite, latest_record_id, session):
         # 未取消かつ取込前までのレコードを抽出する

@@ -14,6 +14,9 @@ engine = enginefactory_mssql_pyodbc(
 csvfile = "example\\data\\init.csv"
 csvrd = CsvReader(csvfile)
 
+# 直下に backup_yyyymmdd というサブフォルダを作成して移動する
+# csvrd = CsvReader(csvfile, insert_after_move="backup_%Y%m%d")
+
 # CSVをDataFrameに変換した状態を確認
 df = csvrd.read()
 print(df.head(100))

@@ -8,25 +8,27 @@ import os
 
 
 class PyMoiReader:
-    def __init__(self, fullname):
+    def __init__(self, fullname, insert_after_move=None):
         self.fullname = fullname
+        self.insert_after_move = insert_after_move
 
     def read(self) -> pd.DataFrame():
         pass
 
-    def move_file(self, dest_dir="%Y%m%d": str):
-        datetime.date.today().strftime(dest_dir)
-        dest_dir = os.path.dirname(fullname + '/yyyymmdd/')
+    def move_file(self):
+        if isinstance(self.insert_after_move, str):
+            subdir = datetime.date.today().strftime(self.insert_after_move)
 
-        try:
-            shutil.move(fullname, dest_dir)
-        except FileNotFoundError as e:
-            print(e)
+            new_dir = os.path.dirname(self.fullname) + '/' + subdir + '/'
+
+            os.mkdir(new_dir)
+
+            shutil.move(self.fullname, new_dir)
 
 
 class CsvReader(PyMoiReader):
-    def __init__(self, fullname, delimiter=',', quotechar='"'):
-        self.__super__.__init__(self, fullname)
+    def __init__(self, fullname, delimiter=',', quotechar='"', insert_after_move=False):
+        super().__init__(fullname, insert_after_move)
 
         self.delimiter = delimiter
         self.quotechar = quotechar
