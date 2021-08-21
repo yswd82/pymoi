@@ -37,8 +37,6 @@ ow = OverwriteParameter(mode='physical', keys=owkey)
 # 初期データ投入
 pm.execute(csvrd, overwrite=ow)
 
-elapsed_time = time.time() - start
-print("elapsed_time:{0}".format(elapsed_time) + "[sec]")
 
 # insert後のテーブル内容を確認
 df = pm.read_table()
@@ -56,6 +54,9 @@ print(df.head(100))
 
 # 追加データ投入
 pm.execute(csvrd_ow, overwrite=ow)
+
+elapsed_time = time.time() - start
+print("elapsed_time:{0}".format(elapsed_time) + "[sec]")
 
 # insert後のテーブル内容を確認
 df = pm.read_table()

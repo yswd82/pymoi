@@ -24,6 +24,9 @@ pm = PyMoi(bind=engine, name='pymoi_example')
 
 pm.clear()
 
+df = pm.read_table()
+print(df.head(100))
+
 pm.execute(csvrd)
 
 elapsed_time = time.time() - start
