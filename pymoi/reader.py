@@ -4,16 +4,26 @@ from typing import List
 import pandas as pd
 import xlwings as xw
 import datetime
+import shutil
+import os
 
 
 class PyMoiReader:
-    def read(self) -> pd.DataFrame:
+    def __init__(self, fullname):
+        self.fullname = fullname
+
+    def read(self) -> pd.DataFrame():
         pass
+
+    def move_file(self):
+        dest_dir = os.path.dirname(fullname + '/yyyymmdd/')
+        shutil.move(fullname, dest_dir)
 
 
 class CsvReader(PyMoiReader):
     def __init__(self, fullname, delimiter=',', quotechar='"'):
-        self.fullname = fullname
+        self.__super__.__init__(self, fullname)
+
         self.delimiter = delimiter
         self.quotechar = quotechar
 
@@ -32,7 +42,8 @@ class ExcelReader(PyMoiReader):
         unit_row: int = 1,
         sheetname: str = None,
     ):
-        self.fullname = fullname
+        self.__super__.__init__(self, fullname)
+
         self.seek_start = seek_start
         self.unit_row = unit_row
         self.sheetname = sheetname
