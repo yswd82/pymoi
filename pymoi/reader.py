@@ -7,23 +7,55 @@ import datetime
 
 
 class PyMoiReader:
-    def read(self) -> pd.DataFrame:
-        pass
+    """PyMoiReader is a class that reads the data from the Excel file and returns a Pandas DataFrame
+    """
+
+    def read(self):
+        return pd.DataFrame()
+
+    def export_config(self):
+        return {}
 
 
 class CsvReader(PyMoiReader):
+    """CsvReader is a class that reads the data from the CSV file and returns a Pandas DataFrame
+    """
+
     def __init__(self, fullname, delimiter=',', quotechar='"'):
+        """initializes the CsvReader class
+
+        Args:
+            fullname ([type]): file name
+            delimiter (str, optional): sets the delimiter for the CSV file. Defaults to ','.
+            quotechar (str, optional): sets the quote character for the CSV file. Defaults to '"'.
+        """
         self.fullname = fullname
         self.delimiter = delimiter
         self.quotechar = quotechar
 
     def read(self):
+        """reads the data from the CSV file and returns a Pandas DataFrame
+
+        Returns:
+            pandas.DataFrame: Pandas DataFrame
+        """
         df = pd.read_csv(self.fullname, delimiter=self.delimiter,
                          quotechar=self.quotechar)
         return df
 
+    def export_config(self):
+        return {
+            'reader_type': 'csv',
+            'fullname': self.fullname,
+            'delimiter': self.delimiter,
+            'quotechar': self.quotechar
+        }
+
 
 class ExcelReader(PyMoiReader):
+    """ExcelReader is a class that reads the data from the Excel file and returns a Pandas DataFrame
+    """
+
     def __init__(
         self,
         fullname,
@@ -32,6 +64,15 @@ class ExcelReader(PyMoiReader):
         unit_row: int = 1,
         sheetname: str = None,
     ):
+        """initializes the ExcelReader class
+
+        Args:
+            fullname ([type]): file name
+            seek_start (str): sets the cell name of the first row to be read
+            names (list): sets the column names of the DataFrame
+            unit_row (int, optional): sets the number of rows to be read. Defaults to 1.
+            sheetname (str, optional): sets the sheet name. Defaults to None.
+        """
         self.fullname = fullname
         self.seek_start = seek_start
         self.unit_row = unit_row
@@ -43,6 +84,8 @@ class ExcelReader(PyMoiReader):
         self.count = 0
 
     def read(self):
+        """reads the data from the Excel file and returns a Pandas DataFrame
+        """
         xw.App(visible=False)
 
         self._wb = xw.Book(
@@ -95,24 +138,45 @@ class ExcelReader(PyMoiReader):
         df.columns = self.names
         return df
 
+    def export_config(self):
+        return {
+            'reader_type': 'excel',
+            'fullname': self.fullname,
+            'seek_start': self.seek_start,
+            'unit_row': self.unit_row,
+            'sheetname': self.sheetname,
+            'names': self.names,
+            'parameters': [param.export_config() for param in self.parameters]
+        }
+
 
 @dataclass
 class Parameter:
-    pass
+    """Parameter is a class that defines the parameter of the ExcelReader class
+    """
+
+    def export_config(self):
+        return {}
 
 
 @dataclass
 class StaticParameter(Parameter):
+    """StaticParameter is a class that defines the static parameter of the ExcelReader class
+    """
     pass
 
 
 @dataclass
 class DynamicParameter(Parameter):
+    """DynamicParameter is a class that defines the dynamic parameter of the ExcelReader class
+    """
     pass
 
 
 @dataclass
 class FixedParameter(StaticParameter):
+    """FixedParameter is a class that defines the fixed parameter of the ExcelReader class
+    """
     value: str
 
     # TODO: システム日付と本日の違いは？
@@ -123,21 +187,50 @@ class FixedParameter(StaticParameter):
     }
 
     def __post_init__(self):
+        """after initialization, the value is replaced by the reserved value
+        """
         self.value = self.__reserved_params.get(self.value, self.value)
+
+    def export_config(self):
+        return {
+            'type': 'fixed',
+            'value': self.value
+        }
 
 
 @dataclass
 class CellParameter(StaticParameter):
+    """CellParameter is a class that defines the cell parameter of the ExcelReader class
+    """
     cell: str
+
+    def export_config(self):
+        return {
+            'type': 'cell',
+            'cell': self.cell
+        }
 
 
 @dataclass
 class DirectionParameter(DynamicParameter):
+    """DirectionParameter is a class that defines the direction parameter of the ExcelReader class
+    """
     line: int
     column: str
     number: int
 
     def __init__(self, line: int, column: str, number: int):
+        """initializes the DirectionParameter class
+
+        Args:
+            line (int): sets the line number
+            column (str): sets the column name
+            number (int): sets the number of the column
+
+        Raises:
+            ValueError: line number is must be greater than 0
+            ValueError: number of the column is must be greater than 0
+        """
         if line < 1:
             raise ValueError(f"line must > 0 but {line}")
         if number < 1:
@@ -147,14 +240,35 @@ class DirectionParameter(DynamicParameter):
         self.column = column
         self.number = number
 
+    def export_config(self):
+        return {
+            'type': 'direction',
+            'line': self.line,
+            'column': self.column,
+            'number': self.number
+        }
+
 
 @dataclass
 class RepeatParameter(DynamicParameter):
+    """RepeatParameter is a class that defines the repeat parameter of the ExcelReader class
+    """
     line: int
     column: str
     number: int
 
     def __init__(self, line: int, column: str, number: int):
+        """initializes the RepeatParameter class
+
+        Args:
+            line (int): line number
+            column (str): column name
+            number (int): number of the column
+
+        Raises:
+            ValueError: line number is must be greater than 0
+            ValueError: number of the column is must be greater than 0
+        """
         if line < 1:
             raise ValueError
         if number < 1:
@@ -163,3 +277,11 @@ class RepeatParameter(DynamicParameter):
         self.line = line
         self.column = column
         self.number = number
+
+    def export_config(self):
+        return {
+            'type': 'repeat',
+            'line': self.line,
+            'column': self.column,
+            'number': self.number
+        }
