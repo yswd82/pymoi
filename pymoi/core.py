@@ -1,5 +1,6 @@
 # -*- coding: UTF-8 -*-
 from dataclasses import dataclass
+from os import name
 import pandas as pd
 from sqlalchemy import Table, Column, Integer, String, create_engine, MetaData
 from sqlalchemy.orm import sessionmaker
@@ -12,7 +13,8 @@ from sqlalchemy.dialects.mssql import \
     SMALLINT, SMALLMONEY, SQL_VARIANT, TEXT, TIME, \
     TIMESTAMP, TINYINT, UNIQUEIDENTIFIER, VARBINARY, VARCHAR
 from sqlalchemy.types import String, Integer, Numeric, Date, DateTime, Float
-from pymoi.reader import PyMoiReader, CsvReader, ExcelReader
+from pymoi.reader import PyMoiReader, CsvReader, ExcelReader, FixedParameter, CellParameter, DirectionParameter, RepeatParameter
+from pymoi._version import __version__
 import json
 
 # default name of columns
@@ -214,23 +216,58 @@ class PyMoi:
 
     def export_config(self):
         if isinstance(self.reader, PyMoiReader):
-            cfg = self.reader.export_config()
-            cfg.update(
-                {
-                    'table_name': self.name
-                }
-            )
+            cfg = {
+                'app': 'pymoi',
+                'version': __version__,
+                'table_name': self.name,
+                'created_at': '2021-11-07',
+                'created_by': 'hogehoge'
+            }
+            cfg.update(self.reader.export_config())
             return cfg
 
 
-# class PyMoiTemplateFactory:
-#     def create(self, file_path):
-#         js = json.loads(file_path)
+class PyMoiTemplateFactory:
+    def create(self, file_path: str):
+        js = json.loads(file_path)
 
-#         if js["reader_type"] == 'csv':
-#             reader = CsvReader(
-#                 file_path=js["fullname"],
-#                 delimiter=js["delimiter"],
-#                 quotechar=js["quotechar"]
-#             )
-#         elif js["reader_type"] == 'excel':
+        if js["reader_type"] == 'csv':
+            reader = CsvReader(
+                fullname=js["fullname"],
+                delimiter=js["delimiter"],
+                quotechar=js["quotechar"]
+            )
+        elif js["reader_type"] == 'excel':
+            reader = ExcelReader(
+                fullname=js["fullname"],
+                seek_start=js["seek_start"],
+                unit_row=js["unit_row"],
+                sheetname=js["sheetname"],
+                names=js["names"],
+            )
+
+            reader.parameters = [PyMoiParameterFactory(
+                p).create() for p in js["parameters"]]
+
+
+class PyMoiParameterFactory:
+    def __init__(self, parameter: dict):
+        self.parameter = parameter
+
+    def create(self):
+        if self.parameter["type"] == 'fixed':
+            return FixedParameter(self.parameter["value"])
+        elif self.parameter["type"] == 'cell':
+            return CellParameter(self.parameter["cell"])
+        elif self.parameter["type"] == 'direction':
+            return DirectionParameter(
+                self.parameter["line"],
+                self.parameter["column"],
+                self.parameter["number"]
+            )
+        elif self.parameter["type"] == 'repeat':
+            return RepeatParameter(
+                self.parameter["line"],
+                self.parameter["column"],
+                self.parameter["number"]
+            )

@@ -197,6 +197,9 @@ class FixedParameter(StaticParameter):
             'value': self.value
         }
 
+    # def __str__(self):
+    #     return f"固定値:{self.value}"
+
 
 @dataclass
 class CellParameter(StaticParameter):
@@ -209,6 +212,9 @@ class CellParameter(StaticParameter):
             'type': 'cell',
             'cell': self.cell
         }
+
+    # def __str__(self):
+    #     return f"セル位置:{self.cell}"
 
 
 @dataclass
@@ -233,6 +239,8 @@ class DirectionParameter(DynamicParameter):
         """
         if line < 1:
             raise ValueError(f"line must > 0 but {line}")
+        if not column:
+            raise ValueError(f"column name must input")
         if number < 1:
             raise ValueError(f'argument "number" must > 0 but {number}')
 
