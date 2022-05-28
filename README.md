@@ -2,7 +2,7 @@
 
 DataFrameをSQLサーバにINSERTするツール
 
-ついでにExcelから柔軟にDataFrameを生成したりする
+INSERT元としてCsvを指定できるほか、Excelの一部分を切り出したりして柔軟にINSERTする表形式データを作成できたりする
 
 ## 開発環境
 
